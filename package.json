@@ -1,0 +1,18 @@
+{
+  "name": "@magpie-community/perchai2api",
+  "version": "0.2.0",
+  "description": "magpie provider plugin: signs in to Perchai (chat.perchai.app) as the Perch CLI does — from the browser session already on this machine — and serves its hosted models through the Perch terminal model-call proxy",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": "./index.mjs",
+  "files": [
+    "index.mjs",
+    "prompt.mjs",
+    "README.md"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zoeee1125/perchai2api.git"
+  }
+}
