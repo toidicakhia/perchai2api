@@ -9,6 +9,37 @@ see [RELEASING.md](RELEASING.md).
 
 ---
 
+## [0.2.1] — 2026-10-24
+
+The release that makes the plugin installable by version. The plugin source is
+unchanged from 0.2.0; what is new is the packaging around it — a changelog that
+says what was actually learned building it, and a release pipeline that pins a
+version to a tarball you can point magpie at.
+
+### Added
+
+- `CHANGELOG.md` — 0.2.0's contents, its six hard-won fixes, and the
+  limitations that survived, written down instead of living in a chat log.
+- `RELEASING.md` — the two artifact shapes a release produces (pinned tarball
+  vs. branch archive), when to use each, and the reinstall bun needs for
+  either, because bun does not compare versions for URL specs.
+- `scripts/release.sh` — one command to bump, pack, tag, push, and publish a
+  GitHub Release with the tarball attached. Pre-flight refuses a dirty tree, a
+  version that does not move forward, a reused tag, and a changelog that lags
+  the tag; every failure path restores `package.json` through a single `EXIT`
+  trap so an aborted release cannot leave the tree on an unpublished version.
+
+### Install
+
+```
+https://github.com/zoeee1125/perchai2api/releases/download/v0.2.1/perchai2api-0.2.1.tgz
+```
+
+Other forms: branch archive
+`https://github.com/zoeee1125/perchai2api/archive/refs/heads/main.tar.gz`,
+or a commit archive for an immediately-fresh copy while the CDN cache catches
+up.
+
 ## [0.2.0] — 2026-10-24
 
 First version that is a real, installable package. Everything below was built
