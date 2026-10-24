@@ -9,6 +9,24 @@ see [RELEASING.md](RELEASING.md).
 
 ---
 
+## [0.2.2] — 2026-10-24
+
+Documentation only. The plugin source is untouched; every change here was
+found by actually releasing 0.2.1 and installing the tarball it produced.
+
+### Fixed
+
+- **The README named sign-in methods that do not exist by name.** It claimed
+  `magpie plugin login perchai2api browser` works. It does not: two of the
+  three methods are `type: "oauth"`, so no name distinguishes the cookie
+  harvest from the browser flow, and magpie answers `Perchai has no sign-in
+  method "browser"`. The README now refers to the menu items by number and
+  shows the non-interactive form (`printf '2\n' | magpie plugin login …`).
+- **The model count was wrong.** The provider serves **27** models, not 28 —
+  confirmed three ways: `magpie plugin list` on a clean 0.2.1 install, the
+  `provider.models()` result from the published tarball, and the installed
+  plugin's own list.
+
 ## [0.2.1] — 2026-10-24
 
 The release that makes the plugin installable by version. The plugin source is

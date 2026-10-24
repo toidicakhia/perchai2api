@@ -6,26 +6,28 @@ does, and serves Perch's hosted models to magpie through Perch's own
 
 ```
 magpie plugin add @magpie-community/perchai2api
-magpie plugin login perchai2api          # pick method 2 below: no browser window
-magpie plugin list                       # perchai2api (Perchai, 28 models) signed in as …
+magpie plugin login perchai2api          # pick 2: no browser window
+magpie plugin list                       # perchai2api (Perchai, 27 models) signed in as …
 ```
 
-`magpie plugin login perchai2api <method>` passes the method by name
-(`oauth`, `browser`, `api`), so magpie does not print its "how do you sign
-in" menu first. Piping that menu's answer (`printf '2\n' | magpie plugin
-login …`) also works.
+The sign-in menu is ordered as below, so `2` is the short one. magpie also
+takes the number non-interactively:
+
+```bash
+printf '2\n' | magpie plugin login perchai2api
+```
 
 ## Sign-in
 
 Three ways in, all kept in magpie's Auth like any other OAuth provider:
 
-- **Use the session this browser is already signed in with** (method
-  `browser`) — the shortest one, and the one to reach for. If you are signed
-  in to chat.perchai.app in a browser on this machine, its Supabase session
+- **Use the session this browser is already signed in with** (menu item 2) —
+  the shortest one, and the one to reach for. If you are signed in to
+  chat.perchai.app in a browser on this machine, its Supabase session
   is already in that browser's cookie store; the plugin reads it, so there is
   no window to click, no consent screen, and no loopback port. Worst case it
   is a single command to get back in after anything goes wrong.
-- **Sign in (Google, GitHub, or email)** (method `oauth`) — the browser flow.
+- **Sign in (Google, GitHub, or email)** (menu item 1) — the browser flow.
   The plugin reads `/api/perch-terminal/cli-auth/config` to learn which
   Supabase project and which OAuth providers the app has on, starts a PKCE
   flow, listens on a loopback port for `?code=`, and exchanges the code for a
@@ -33,7 +35,7 @@ Three ways in, all kept in magpie's Auth like any other OAuth provider:
   one of the enabled ones (default `google`, falling back to the first the
   app enables). Use this on a machine whose browser is not signed in, or to
   sign in as a different account.
-- **Access token** (method `api`) — paste a Supabase access token if you
+- **Access token** (menu item 3) — paste a Supabase access token if you
   already have one. No refresh token to go with it, so the sign-in lasts
   until Perch stops accepting the token.
 
@@ -49,8 +51,8 @@ sign-in: the refresh token in the same cookie renews it.
 
 Firefox is read directly. Chromium-family browsers (Chrome, Edge, Brave)
 seal their cookie values with a key from the login keychain, so the harvest
-reports that store as unreadable rather than guessing — method `oauth` or
-`api` covers those machines. The stores tried, and why each was skipped, are
+reports that store as unreadable rather than guessing — menu items 1 or 3
+cover those machines. The stores tried, and why each was skipped, are
 named in the error when no session is found.
 
 ### Session lifetime
