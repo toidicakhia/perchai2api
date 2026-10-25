@@ -741,16 +741,32 @@ function modelCallURL(app) {
 }
 
 // withSystem guarantees the messages Perch will actually serve. Perch hosts
-// its models for the Web, Desktop and CLI surfaces only, and it reads a call
-// with no system message as direct API access: it answers those with
-// perch_surface_required no matter what clientSurface claims, which is why a
-// body of nothing but user turns is refused. The CLI always sends its persona
-// first, so the persona goes in front when the caller did not send one.
+// its models for the Web, Desktop and CLI surfaces only: it reads a call
+// whose system turns carry another agent's instructions as direct API access
+// and answers perch_surface_required no matter what clientSurface claims. The
+// CLI sends its own persona, so the persona is the only system message here,
+// and a caller's own system prompt rides the conversation as a user turn,
+// where the model still reads it.
 function withSystem(messages) {
-  if (messages.some((m) => m && m.role === "system" && String(m.content ?? "").trim())) return messages
-  // an empty system turn carries no persona, so it is replaced rather than
-  // left to sit beside one
-  return [{ role: "system", content: PROMPT }, ...messages.filter((m) => m?.role !== "system")]
+  const out = []
+  for (const m of messages) {
+    if (!m) continue
+    if (m.role !== "system" && m.role !== "developer") {
+      out.push(m)
+      continue
+    }
+    const text = Array.isArray(m.content)
+      ? m.content
+          .map((p) => (typeof p === "string" ? p : p?.type === "text" ? p.text ?? "" : ""))
+          .join("\n")
+          .trim()
+      : String(m.content ?? "").trim()
+    // an empty system turn carries nothing, and a caller that sends the
+    // persona itself does not need it repeated
+    if (!text || text === PROMPT.trim()) continue
+    out.push({ role: "user", content: `Instructions from the client:\n\n${text}` })
+  }
+  return [{ role: "system", content: PROMPT }, ...out]
 }
 
 // bodyOf reads an OpenAI chat body (or an Anthropic one, in case a client
