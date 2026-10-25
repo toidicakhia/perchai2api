@@ -37,7 +37,7 @@ import http from "node:http"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { spawn, execFileSync } from "node:child_process"
+import { execFileSync } from "node:child_process"
 import PROMPT from "./prompt.mjs"
 
 const PROVIDER = "perchai2api"
@@ -244,13 +244,17 @@ async function sbAuth(s, path, body, { signal } = {}) {
 function sessionOf(got) {
   const s = got?.session ?? got
   const user = s?.user ?? {}
+  const expiresAt = s?.expires_at ?? s?.expiresAt
   return {
-    accessToken: first(s?.access_token),
-    refreshToken: first(s?.refresh_token),
-    expiresAt: Number.isFinite(Number(s?.expires_at)) ? Number(s.expires_at) : nowSec() + 3600,
-    userId: first(user.id),
-    email: first(user.email, user.user_metadata?.email),
-    provider: first(user.app_metadata?.provider),
+    // already-narrowed sessions come back in here too (signIn passes one to
+    // sessionToAuth), so both GoTrue's snake_case and this plugin's camelCase
+    // are read
+    accessToken: first(s?.access_token, s?.accessToken),
+    refreshToken: first(s?.refresh_token, s?.refreshToken),
+    expiresAt: Number.isFinite(Number(expiresAt)) ? Number(expiresAt) : nowSec() + 3600,
+    userId: first(user.id, s?.userId),
+    email: first(user.email, user.user_metadata?.email, s?.email),
+    provider: first(user.app_metadata?.provider, s?.provider),
   }
 }
 
@@ -297,11 +301,21 @@ async function cfgOf(app, signal) {
 }
 
 // oauthStart asks GoTrue for the provider's authorize URL without letting
-// it navigate: the plugin opens it in the browser itself and reads the
-// code from its own loopback listener.
-async function oauthStart(s, provider, redirectTo) {
-  const params = new URLSearchParams({ provider, redirect_to: redirectTo, flow_type: "pkce" })
-  if (provider === "google") params.set("query_params", JSON.stringify({ prompt: "select_account" }))
+// it navigate: magpie opens the page, and the plugin reads the code from
+// its own loopback listener.
+//
+// GoTrue reads the PKCE material from the top-level query, not from
+// redirect_to: code_challenge goes on the authorize call itself (the CLI's
+// supabase-js does the same), and only then does the flow state remember the
+// challenge the token exchange has to match. Extra params such as Google's
+// prompt are forwarded to the provider as-is.
+async function oauthStart(s, provider, redirectTo, codeChallenge) {
+  const params = new URLSearchParams({ provider, redirect_to: redirectTo })
+  if (codeChallenge) {
+    params.set("code_challenge", codeChallenge)
+    params.set("code_challenge_method", "s256")
+  }
+  if (provider === "google") params.set("prompt", "select_account")
   const url = `${s.supabaseUrl.replace(/\/+$/, "")}/auth/v1/authorize?${params}`
   const res = await fetch(url, {
     redirect: "manual",
@@ -322,15 +336,6 @@ function verifierOf() {
   const verifier = crypto.randomBytes(48).toString("base64url")
   const challenge = crypto.createHash("sha256").update(verifier).digest("base64url")
   return { verifier, challenge }
-}
-
-function openBrowser(url) {
-  const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open"
-  const args = process.platform === "win32" ? ["/c", "start", "", url] : [url]
-  try {
-    const p = spawn(cmd, args, { stdio: "ignore", detached: true })
-    p.unref()
-  } catch {}
 }
 
 const page = (ok) =>
@@ -645,17 +650,18 @@ async function signIn(log, wanted) {
   const provider = cfg.providers.includes(wanted) ? wanted : cfg.providers.includes("google") ? "google" : cfg.providers[0]
   if (!provider) return fail("Perchai has no OAuth provider on; sign in with email or a GitHub account instead")
   const { verifier, challenge } = verifierOf()
-  // GoTrue takes the PKCE verifier from the flow's state cookie: the
-  // challenge rides the authorize URL, the verifier the exchange.
+  // the challenge rides the authorize URL, the verifier the exchange, and
+  // the callback is the clean loopback URL GoTrue redirects back to
   const listen = await listener(cfg.redirectHost || "127.0.0.1")
   let authorize
   try {
-    authorize = await oauthStart(s, provider, `${listen.redirectTo.replace(/\/+$/, "")}?code_challenge=${challenge}&code_challenge_method=s256`)
+    authorize = await oauthStart(s, provider, listen.redirectTo, challenge)
   } catch (e) {
     await listen.close()
     return fail(e?.message ?? String(e))
   }
-  openBrowser(authorize)
+  // magpie opens the page (opened is left false); the plugin never opens
+  // one itself, or the sign-in would land in two tabs
   return {
     url: authorize,
     instructions: `Sign in to Perchai in the browser; this finishes on its own. (If the browser does not open, visit ${authorize})`,
